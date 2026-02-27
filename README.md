@@ -44,8 +44,8 @@ Paste any public text (LinkedIn bio, social media post, news article) or a URL a
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-cd YOUR_REPO_NAME
+git clone https://github.com/Suryaaa81/Cyber-Risk-Intelligence.git
+cd Cyber-Risk-Intelligence
 ```
 
 ---
@@ -126,6 +126,36 @@ Paste any public URL (Wikipedia, LinkedIn public profiles, news articles):
 ```
 https://en.wikipedia.org/wiki/Tim_Cook
 ```
+
+---
+
+## 🌐 Deployment (Production)
+
+### 1. Frontend (Vercel)
+- Push your code to **GitHub**.
+- Go to [Vercel](https://vercel.com) -> New Project.
+- Import this repository.
+- **Environment Variables:**
+  - `NEXT_PUBLIC_API_URL`: Set this to your Backend URL (e.g., `https://your-backend.onrender.com`).
+- Click **Deploy**.
+
+### 2. Backend (Render / Railway)
+- Go to [Render](https://render.com) -> New Web Service.
+- Connect your GitHub repository.
+- **Build Command:** `pip install -r requirements.txt && python -m spacy download en_core_web_sm`
+- **Start Command:** `uvicorn main:app --host 0.0.0.0 --port 8000`
+- **Environment Variables:**
+  - `OPENROUTER_API_KEY`: Your OpenRouter API key.
+  - `ALLOWED_ORIGINS`: Set this to your Vercel URL (e.g., `https://your-app.vercel.app`).
+- Click **Deploy**.
+
+### 3. Docker (Alternative)
+Run locally or on a VPS using Docker:
+```bash
+docker-compose up --build
+```
+- Backend will be on `port 8000`
+- Frontend will be on `port 3000`
 
 ---
 

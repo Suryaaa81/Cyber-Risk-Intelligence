@@ -1,0 +1,59 @@
+# ─── BACKEND ───────────────────────────────────────────
+# Python virtual environment (never commit this — 40k+ files)
+backend/venv/
+backend/.venv/
+
+# Secrets (API keys live here — NEVER commit)
+backend/.env
+
+# Python cache
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Generated PDF reports (auto-created at runtime)
+backend/risk_report_*.pdf
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ─── FRONTEND ──────────────────────────────────────────
+# Node dependencies
+frontend/node_modules/
+node_modules/
+
+# Next.js build output
+frontend/.next/
+frontend/out/
+
+# Env files
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# TypeScript build info
+frontend/tsconfig.tsbuildinfo
+
+# ─── GENERAL ───────────────────────────────────────────
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*

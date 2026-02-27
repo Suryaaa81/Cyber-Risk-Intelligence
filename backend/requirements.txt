@@ -4,6 +4,11 @@ python-multipart
 pydantic
 pandas
 spacy
+requests
+beautifulsoup4
+PyPDF2
+reportlab
+python-dotenv
 transformers
 torch
 scikit-learn

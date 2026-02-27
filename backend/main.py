@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
@@ -30,12 +31,16 @@ app = FastAPI(title="AI Social Engineering Risk Intelligence API")
 # Enable CORS
 # ------------------------
 
+# CORS: read allowed origins from env; defaults to localhost only (never wildcard in prod)
+_RAW_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+ALLOWED_ORIGINS = [o.strip() for o in _RAW_ORIGINS.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # ------------------------
@@ -44,7 +49,8 @@ app.add_middleware(
 
 try:
     nlp = spacy.load("en_core_web_sm")
-except:
+except Exception as e:
+    print(f"Warning: spaCy model not loaded: {e}")
     nlp = None
 
 # ------------------------
@@ -104,20 +110,44 @@ def call_openrouter(prompt: str, model: str = None) -> str | None:
 
 
 
-# ------------------------
-# Request Schema
+# Input size limits (prevent DoS)
+MAX_TEXT_LENGTH   = 10_000   # characters
+MAX_URL_LENGTH    = 2_000
 
+# Blocked private/internal address patterns (SSRF protection)
+_PRIVATE_URL_PATTERN = re.compile(
+    r"(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|10\.\d+\.\d+\.\d+"
+    r"|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+"
+    r"|::1|\[::1\])",
+    re.IGNORECASE
+)
 
 class TextRequest(BaseModel):
     text: str
-    role: Optional[str] = None  # e.g. 'Engineer', 'CEO'
-    industry: Optional[str] = None  # e.g. 'finance', 'healthcare'
+    role: Optional[str] = None
+    industry: Optional[str] = None
+
+    def clean_text(self) -> str:
+        t = self.text.strip()
+        if len(t) > MAX_TEXT_LENGTH:
+            raise ValueError(f"Text exceeds maximum length of {MAX_TEXT_LENGTH} characters.")
+        return t
 
 
 class URLRequest(BaseModel):
     url: str
     role: Optional[str] = None
     industry: Optional[str] = None
+
+    def validated_url(self) -> str:
+        u = self.url.strip()
+        if len(u) > MAX_URL_LENGTH:
+            raise ValueError("URL too long.")
+        if not re.match(r"^https?://", u, re.IGNORECASE):
+            raise ValueError("URL must start with http:// or https://")
+        if _PRIVATE_URL_PATTERN.search(u):
+            raise ValueError("Internal/private URLs are not allowed.")
+        return u
 
 
 class AnalysisResult(BaseModel):
@@ -601,10 +631,15 @@ async def analyze_text(request: TextRequest):
 
 @app.post("/analyze-url")
 async def analyze_url(request: URLRequest):
-    text = extract_text_from_url(request.url)
+    try:
+        safe_url = request.validated_url()
+    except ValueError as e:
+        return {"error": str(e)}
+
+    text = extract_text_from_url(safe_url)
 
     if not text:
-        return {"error": "Could not extract content from URL"}
+        return {"error": "Could not extract content from URL. The site may block scraping or the page is empty."}
 
     return await analyze_text(TextRequest(text=text, role=request.role, industry=request.industry))
 
@@ -616,7 +651,12 @@ async def analyze_url(request: URLRequest):
 async def generate_report(request: TextRequest):
     analysis = await analyze_text(request)
     file_path = generate_pdf_report(analysis)
-    return FileResponse(file_path, media_type="application/pdf", filename=file_path)
+    # BackgroundTask deletes the temp file after the response is sent
+    import os as _os
+    from fastapi.background import BackgroundTasks
+    bg = BackgroundTasks()
+    bg.add_task(lambda: _os.remove(file_path) if _os.path.exists(file_path) else None)
+    return FileResponse(file_path, media_type="application/pdf", filename="risk_report.pdf", background=bg)
 
 # ------------------------
 # CSV Upload
@@ -629,7 +669,7 @@ async def upload_csv(
     industry: Optional[str] = Form(None),
 ):
     df = pd.read_csv(file.file)
-    combined_text = " ".join(df.astype(str).values.flatten())
+    combined_text = " ".join(df.astype(str).values.flatten())[:MAX_TEXT_LENGTH]
     return await analyze_text(TextRequest(text=combined_text, role=role, industry=industry))
 
 
